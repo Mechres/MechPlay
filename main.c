@@ -34,6 +34,17 @@ void LoadMusicFiles(const char *directoryPath) {
     closedir(dir);
 }
 
+const char* GetFileNameFromPath(const char* path) {
+    const char* fileName = strrchr(path, '\\');
+    if (fileName == NULL) {
+        fileName = strrchr(path, '/');
+        if (fileName == NULL) {
+            return path;
+        }
+    }
+    return fileName + 1;
+}
+
 
 int main(void)
 {
@@ -48,11 +59,10 @@ int main(void)
 
     InitAudioDevice();              // Initialize audio device
 
-    LoadMusicFiles("C:/Users/myagi/Desktop/MP3/"); // MP3 Directory
+    LoadMusicFiles("C:/Users/myagi/Desktop/test/"); // MP3 Directory
     int currentSongIndex = 0;
     PlayMusicStream(musicArray[currentSongIndex]);
 
-    // TODO: Add Load and bulk load
     //Music music = LoadMusicStream("Ashes.mp3");
 
 
@@ -63,7 +73,7 @@ int main(void)
 
     SetTargetFPS(60);
 
-    float volume = 2.0f;
+    float volume = 1.0f;
     SetMusicVolume(musicArray[currentSongIndex], volume);
 
     // Main game loop
@@ -96,6 +106,7 @@ int main(void)
         {
             StopMusicStream(musicArray[currentSongIndex]);
             PlayMusicStream(musicArray[currentSongIndex]);
+            _sleep(100);
         }
 
         // Pause/Resume music playing
@@ -137,36 +148,62 @@ int main(void)
         }
 
         // Draw
-        //----------------------------------------------------------------------------------
         BeginDrawing();
-            // TODO: ADD LIST AND DRAG & DROP
             ClearBackground(BLACK);
 
-
             // For Showing music name without full path
-            const char *musicName = strrchr(songFiles[currentSongIndex], '//');
-            if (musicName == NULL) musicName = songFiles[currentSongIndex]; // No backslashes found
-            else musicName++; // Move past the backslash
+            const char *musicName = GetFileNameFromPath(songFiles[currentSongIndex]);
+
             DrawText(musicName, 180, 150, 20, DARKPURPLE);
 
             DrawRectangle(200, 200, 400, 12, LIGHTGRAY);
             DrawRectangle(200, 200, (int)(timePlayed*400.0f), 12, MAROON);
             DrawRectangleLines(200, 200, 400, 12, GRAY);
 
-
-            // TODO: ADD KEYBOARD MUSIC CONTROLS
+            // Draw keyboard controls
             DrawText("R TO RESTART MUSIC", 300, 250, 15, PURPLE);
             DrawText("SPACE TO PAUSE/RESUME MUSIC", 300, 250+15, 15, PURPLE);
             DrawText("UP&DOWN TO CONTROL VOLUME", 300, 250+30, 15, PURPLE);
-            // DRAW VOLUME
+            DrawText("DRAG&DROP MP3 FILES!", 300, 250+45, 15, PURPLE);
+            // Draw volume
             char vol[64];
             sprintf(vol, "%.1f", volume*100);
             DrawText(vol, 95,70,12, DARKPURPLE);
             DrawRectangle(100,100,12,320, DARKPURPLE);
             DrawRectangle(100, 100, 12, 300-volume*20.0f, DARKBLUE);
             DrawRectangleLines(100,100,12,320, DARKPURPLE);
+
+        // Draw playlist
+        int playlistY = 0;
+        for (int i = 0; i < songCount; i++) {
+            const char* songName = GetFileNameFromPath(songFiles[i]);
+            if (i == currentSongIndex) {
+                DrawRectangle(20, playlistY, 760, 20, DARKPURPLE);
+                DrawText(songName, 25, playlistY + 2, 10, LIGHTGRAY);
+            } else {
+                DrawText(songName, 25, playlistY + 2, 10, GRAY);
+            }
+            playlistY += 25;
+        }
+
+        // Drag and drop handling
+        if (IsFileDropped()) {
+            FilePathList droppedFiles = LoadDroppedFiles();
+            for (int i = 0; i < droppedFiles.count; i++) {
+                if (strstr(droppedFiles.paths[i], ".mp3") != NULL) {
+                    if (songCount < MAX_SONGS) {
+                        songFiles[songCount] = malloc(strlen(droppedFiles.paths[i]) + 1);
+                        strcpy(songFiles[songCount], droppedFiles.paths[i]);
+                        musicArray[songCount] = LoadMusicStream(droppedFiles.paths[i]);
+                        songCount++;
+                    } else {
+                        printf("Maximum number of songs reached (%d).\n", MAX_SONGS);
+                    }
+                }
+            }
+            UnloadDroppedFiles(droppedFiles);
+        }
         EndDrawing();
-        //----------------------------------------------------------------------------------
     }
 
     // De-Initialization
